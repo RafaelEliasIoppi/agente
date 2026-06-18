@@ -11,16 +11,20 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Azure / Microsoft Graph
-    azure_client_id: str = Field(..., description="Azure App Registration Client ID")
-    azure_tenant_id: str = Field(..., description="Azure Tenant ID")
-    sharepoint_drive_id: str = Field(..., description="SharePoint Drive ID")
-    workbook_item_id: str = Field(..., description="Workbook file item ID in the drive")
+    # Modo demo — roda sem nenhuma chave externa
+    demo_mode: bool = Field(default=False, description="Roda com dados locais, sem Azure nem Anthropic")
+    demo_data_path: Path = Field(default=Path("./demo_data/urgencia_renal.json"))
+
+    # Azure / Microsoft Graph (opcionais em demo_mode)
+    azure_client_id: str = Field(default="", description="Azure App Registration Client ID")
+    azure_tenant_id: str = Field(default="", description="Azure Tenant ID")
+    sharepoint_drive_id: str = Field(default="", description="SharePoint Drive ID")
+    workbook_item_id: str = Field(default="", description="Workbook file item ID in the drive")
     workbook_table_name: str = Field(default="", description="Table name (empty = auto-detect first)")
     workbook_key_column: str = Field(default="", description="Key column name (empty = auto-detect)")
 
-    # Anthropic / Claude
-    anthropic_api_key: str = Field(..., description="Anthropic API key")
+    # Anthropic / Claude (opcional em demo_mode)
+    anthropic_api_key: str = Field(default="", description="Anthropic API key")
     claude_model: str = Field(default="claude-sonnet-4-6", description="Claude model ID")
 
     # SMTP Email

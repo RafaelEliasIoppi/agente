@@ -1,19 +1,15 @@
 from __future__ import annotations
 from contextlib import asynccontextmanager
-import asyncio
 import logging
 from fastapi import FastAPI
 from ..config.settings import settings
 from ..logs.logging_config import setup_logging
-from ..graph.client import GraphClient
-from ..graph.workbook import WorkbookReader
 from ..repositories.snapshot_repo import SnapshotRepository
 from ..repositories.history_repo import HistoryRepository
 from ..services.monitor import MonitorService
 from ..notifications.console import ConsoleNotifier
 from ..notifications.email import EmailNotifier
 from ..scheduler.scheduler import MonitorScheduler
-from ..agents.excel_agent import ExcelAgent
 from ..agents.tools import init_tools
 from .routes import status as status_route
 from .routes import dados as dados_route
@@ -24,24 +20,51 @@ from .routes import perguntar as perguntar_route
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    setup_logging(log_dir=settings.logs_dir)
-    settings.snapshots_dir.mkdir(parents=True, exist_ok=True)
-    settings.history_dir.mkdir(parents=True, exist_ok=True)
-
+def _build_reader():
+    """Retorna LocalWorkbookReader ou WorkbookReader dependendo da config."""
+    if settings.demo_mode or not settings.azure_client_id:
+        from ..graph.local_workbook import LocalWorkbookReader
+        logger.info(f"Modo local: lendo arquivo '{settings.demo_data_path}'")
+        return LocalWorkbookReader(
+            file_path=settings.demo_data_path,
+            table_name=settings.workbook_table_name,
+            key_column=settings.workbook_key_column,
+        )
+    from ..graph.client import GraphClient
+    from ..graph.workbook import WorkbookReader
+    logger.info("Modo SharePoint: conectando via Microsoft Graph API")
     graph_client = GraphClient(
         client_id=settings.azure_client_id,
         tenant_id=settings.azure_tenant_id,
         token_cache_path=settings.token_cache_path,
     )
-    workbook_reader = WorkbookReader(
+    return WorkbookReader(
         client=graph_client,
         drive_id=settings.sharepoint_drive_id,
         item_id=settings.workbook_item_id,
         table_name=settings.workbook_table_name,
         key_column=settings.workbook_key_column,
     )
+
+
+def _build_agent(snapshot_repo: SnapshotRepository, history_repo: HistoryRepository):
+    """Retorna ExcelAgent (Claude) ou SimpleAgent (regras) dependendo da config."""
+    if settings.anthropic_api_key:
+        from ..agents.excel_agent import ExcelAgent
+        logger.info(f"Agente: Claude ({settings.claude_model})")
+        return ExcelAgent(model=settings.claude_model)
+    from ..agents.simple_agent import SimpleAgent
+    logger.info("Agente: modo simples (sem API key Anthropic)")
+    return SimpleAgent(snapshot_repo=snapshot_repo, history_repo=history_repo)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging(log_dir=settings.logs_dir)
+    settings.snapshots_dir.mkdir(parents=True, exist_ok=True)
+    settings.history_dir.mkdir(parents=True, exist_ok=True)
+
+    reader = _build_reader()
     snapshot_repo = SnapshotRepository(settings.snapshots_dir)
     history_repo = HistoryRepository(settings.history_dir)
 
@@ -57,7 +80,7 @@ async def lifespan(app: FastAPI):
         ))
 
     monitor = MonitorService(
-        workbook_reader=workbook_reader,
+        workbook_reader=reader,
         snapshot_repo=snapshot_repo,
         history_repo=history_repo,
         notifiers=notifiers,
@@ -65,7 +88,7 @@ async def lifespan(app: FastAPI):
     )
 
     init_tools(snapshot_repo, history_repo)
-    agent = ExcelAgent(model=settings.claude_model)
+    agent = _build_agent(snapshot_repo, history_repo)
 
     status_route.init_router(monitor)
     dados_route.init_router(snapshot_repo)
@@ -80,7 +103,7 @@ async def lifespan(app: FastAPI):
     try:
         await monitor.run_cycle()
     except Exception as e:
-        logger.warning(f"Initial monitor cycle failed (will retry on schedule): {e}")
+        logger.warning(f"Ciclo inicial falhou (tentará novamente no agendamento): {e}")
 
     yield
 
