@@ -14,8 +14,6 @@ class Settings(BaseSettings):
     # Azure / Microsoft Graph
     azure_client_id: str = Field(..., description="Azure App Registration Client ID")
     azure_tenant_id: str = Field(..., description="Azure Tenant ID")
-    ms_username: str = Field(..., description="Microsoft 365 username (email)")
-    ms_password: str = Field(..., description="Microsoft 365 password")
     sharepoint_drive_id: str = Field(..., description="SharePoint Drive ID")
     workbook_item_id: str = Field(..., description="Workbook file item ID in the drive")
     workbook_table_name: str = Field(default="", description="Table name (empty = auto-detect first)")
@@ -39,6 +37,7 @@ class Settings(BaseSettings):
 
     # Storage
     data_dir: Path = Field(default=Path("./data"))
+    token_cache_path: Path = Field(default=Path("./data/token_cache.json"))
 
     @property
     def snapshots_dir(self) -> Path:

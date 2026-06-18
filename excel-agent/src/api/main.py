@@ -33,8 +33,7 @@ async def lifespan(app: FastAPI):
     graph_client = GraphClient(
         client_id=settings.azure_client_id,
         tenant_id=settings.azure_tenant_id,
-        username=settings.ms_username,
-        password=settings.ms_password,
+        token_cache_path=settings.token_cache_path,
     )
     workbook_reader = WorkbookReader(
         client=graph_client,
@@ -78,7 +77,10 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(monitor.run_cycle)
     scheduler.start()
 
-    await monitor.run_cycle()
+    try:
+        await monitor.run_cycle()
+    except Exception as e:
+        logger.warning(f"Initial monitor cycle failed (will retry on schedule): {e}")
 
     yield
 
