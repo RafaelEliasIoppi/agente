@@ -18,8 +18,9 @@ class Settings(BaseSettings):
     # Azure / Microsoft Graph (opcionais em demo_mode)
     azure_client_id: str = Field(default="", description="Azure App Registration Client ID")
     azure_tenant_id: str = Field(default="", description="Azure Tenant ID")
-    sharepoint_drive_id: str = Field(default="", description="SharePoint Drive ID")
-    workbook_item_id: str = Field(default="", description="Workbook file item ID in the drive")
+    sharepoint_drive_id: str = Field(default="", description="SharePoint Drive ID (vazio = auto)")
+    workbook_item_id: str = Field(default="", description="Workbook item ID (vazio = busca por nome)")
+    workbook_name: str = Field(default="", description="Nome do arquivo para busca automática")
     workbook_table_name: str = Field(default="", description="Table name (empty = auto-detect first)")
     workbook_key_column: str = Field(default="", description="Key column name (empty = auto-detect)")
 

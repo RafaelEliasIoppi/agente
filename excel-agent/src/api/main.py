@@ -42,6 +42,7 @@ def _build_reader():
         client=graph_client,
         drive_id=settings.sharepoint_drive_id,
         item_id=settings.workbook_item_id,
+        workbook_name=settings.workbook_name,
         table_name=settings.workbook_table_name,
         key_column=settings.workbook_key_column,
     )
